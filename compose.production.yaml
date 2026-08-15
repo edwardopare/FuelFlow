@@ -1,0 +1,264 @@
+name: fuelflow-fsms-production
+
+x-logging: &production-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+x-api-environment: &api-environment
+  APP_NAME: FuelFlow FSMS
+  APP_ENV: production
+  APP_KEY: ${APP_KEY:?Set APP_KEY in .env.production}
+  APP_DEBUG: "false"
+  APP_URL: ${APP_URL:?Set the public HTTPS URL in .env.production}
+  FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env.production}
+  APP_TIMEZONE: Africa/Accra
+  API_RATE_LIMIT_PER_MINUTE: ${API_RATE_LIMIT_PER_MINUTE:-120}
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_DATABASE: ${POSTGRES_DB:?Set POSTGRES_DB in .env.production}
+  DB_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+  DB_URL: ${DB_URL:-}
+  DB_PASSWORD_FILE: /run/secrets/postgres_password
+  DB_SSLMODE: ${DB_SSLMODE:-prefer}
+  SESSION_DRIVER: redis
+  SESSION_CONNECTION: default
+  SESSION_LIFETIME: ${SESSION_LIFETIME:-30}
+  VENDOR_SESSION_LIFETIME: ${VENDOR_SESSION_LIFETIME:-30}
+  SESSION_ENCRYPT: "true"
+  SESSION_SECURE_COOKIE: "true"
+  SESSION_HTTP_ONLY: "true"
+  SESSION_SAME_SITE: lax
+  SESSION_DOMAIN: ${SESSION_DOMAIN:-}
+  QUEUE_CONNECTION: redis
+  CACHE_STORE: redis
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD_FILE: /run/secrets/redis_password
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Set CORS_ALLOWED_ORIGINS in .env.production}
+  SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:?Set SANCTUM_STATEFUL_DOMAINS in .env.production}
+  TRUSTED_PROXIES: "*"
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: ${LOG_LEVEL:-warning}
+  MAIL_MAILER: ${MAIL_MAILER:-smtp}
+  MAIL_SCHEME: ${MAIL_SCHEME:-tls}
+  MAIL_HOST: ${MAIL_HOST:-}
+  MAIL_PORT: ${MAIL_PORT:-587}
+  MAIL_USERNAME: ${MAIL_USERNAME:-}
+  MAIL_PASSWORD_FILE: /run/secrets/mail_password
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@example.com}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-FuelFlow FSMS}
+  SEED_DEMO_DATA: "false"
+
+x-api-service: &api-service
+  image: fuelflow-api:${IMAGE_TAG:-latest}
+  build:
+    context: ./apps/api
+    dockerfile: Dockerfile.production
+  environment: *api-environment
+  secrets:
+    - postgres_password
+    - redis_password
+    - mail_password
+  volumes:
+    - api_storage:/var/www/html/storage
+    - api_cache:/var/www/html/bootstrap/cache
+  networks:
+    - application
+    - data
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  init: true
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging: *production-logging
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.production}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *production-logging
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - /bin/sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"
+    secrets:
+      - redis_password
+    volumes:
+      - redis_data:/data
+    networks:
+      - data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$(cat /run/secrets/redis_password) redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    logging: *production-logging
+
+  storage-init:
+    image: fuelflow-api:${IMAGE_TAG:-latest}
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.production
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mkdir -p
+        /var/www/html/storage/app/private/purchase-order-payment-receipts
+        /var/www/html/storage/framework/cache/data
+        /var/www/html/storage/framework/sessions
+        /var/www/html/storage/framework/views
+        /var/www/html/storage/logs
+        /var/www/html/bootstrap/cache
+        && chown -R www-data:www-data
+        /var/www/html/storage
+        /var/www/html/bootstrap/cache
+    volumes:
+      - api_storage:/var/www/html/storage
+      - api_cache:/var/www/html/bootstrap/cache
+    network_mode: none
+    read_only: true
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+    logging: *production-logging
+
+  api:
+    <<: *api-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - SCRIPT_NAME=/fpm-ping SCRIPT_FILENAME=/fpm-ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 2>/dev/null | grep -q pong
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  queue:
+    <<: *api-service
+    command: php artisan queue:work --sleep=2 --tries=3 --backoff=5 --timeout=120 --max-time=3600
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+
+  scheduler:
+    <<: *api-service
+    command: php artisan schedule:work
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+
+  gateway:
+    image: fuelflow-web:${IMAGE_TAG:-latest}
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.production
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8080}:8080"
+    networks:
+      - application
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/api/v1/health | grep -q '\"status\":\"ok\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *production-logging
+
+  migrate:
+    <<: *api-service
+    command: php artisan migrate --force
+    profiles:
+      - tools
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+
+networks:
+  application:
+  data:
+    internal: true
+
+volumes:
+  api_cache:
+  api_storage:
+  postgres_data:
+  redis_data:
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_SECRET_FILE:-./secrets/postgres_password.txt}
+  redis_password:
+    file: ${REDIS_PASSWORD_SECRET_FILE:-./secrets/redis_password.txt}
+  mail_password:
+    file: ${MAIL_PASSWORD_SECRET_FILE:-./secrets/mail_password.txt}

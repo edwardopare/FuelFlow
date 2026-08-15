@@ -1,0 +1,16 @@
+.env
+.env.production
+.env.production.test
+.idea/
+.vscode/
+tmp/
+secrets/*.txt
+
+apps/api/.env
+apps/api/.phpunit.cache/
+apps/api/storage/logs/*
+apps/api/vendor/
+
+apps/web/dist/
+apps/web/node_modules/
+apps/web/*.local

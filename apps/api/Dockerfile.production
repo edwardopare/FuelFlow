@@ -1,0 +1,51 @@
+FROM php:8.4-fpm-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libfcgi-bin \
+        libicu-dev \
+        libpq-dev \
+        libzip-dev \
+        unzip \
+    && docker-php-ext-install -j"$(nproc)" intl opcache pcntl pdo_pgsql zip \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+WORKDIR /var/www/html
+
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --no-progress \
+    --no-scripts \
+    --optimize-autoloader
+
+COPY --chown=www-data:www-data . .
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/99-fuelflow.ini
+COPY docker/php/zz-fuelflow.conf /usr/local/etc/php-fpm.d/zz-fuelflow.conf
+COPY docker/production-entrypoint.sh /usr/local/bin/fuelflow-entrypoint
+
+RUN rm -f bootstrap/cache/*.php \
+    && mkdir -p \
+        storage/app/private/purchase-order-payment-receipts \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+    && composer dump-autoload --no-dev --classmap-authoritative --no-scripts \
+    && php artisan package:discover --ansi \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod 0755 /usr/local/bin/fuelflow-entrypoint
+
+USER www-data
+
+EXPOSE 9000
+
+ENTRYPOINT ["fuelflow-entrypoint"]
+CMD ["php-fpm", "-F"]
