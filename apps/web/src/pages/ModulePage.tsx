@@ -840,6 +840,8 @@ function ReportSchedulesPage() {
     report_type: 'reconciliation',
     frequency: 'daily',
     send_time: '06:00',
+    day_of_week: '1',
+    day_of_month: '1',
     recipients: '',
   })
   const schedules = useQuery({
@@ -854,12 +856,14 @@ function ReportSchedulesPage() {
         report_type: values.report_type,
         frequency: values.frequency,
         send_time: values.send_time,
+        ...(values.frequency === 'weekly' ? { day_of_week: Number(values.day_of_week) } : {}),
+        ...(values.frequency === 'monthly' ? { day_of_month: Number(values.day_of_month) } : {}),
         recipients: values.recipients.split(',').map((email) => email.trim()).filter(Boolean),
       }),
     }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['report-schedules'] })
-      setValues({ name: '', report_type: 'reconciliation', frequency: 'daily', send_time: '06:00', recipients: '' })
+      setValues({ name: '', report_type: 'reconciliation', frequency: 'daily', send_time: '06:00', day_of_week: '1', day_of_month: '1', recipients: '' })
     },
   })
   const toggle = useMutation({
@@ -874,13 +878,15 @@ function ReportSchedulesPage() {
         <label><span className="mb-2 block text-sm font-semibold">Schedule name *</span><input className="form-input" onChange={(event) => setValues({ ...values, name: event.target.value })} required value={values.name} /></label>
         <label><span className="mb-2 block text-sm font-semibold">Report *</span><select className="form-input" onChange={(event) => setValues({ ...values, report_type: event.target.value })} value={values.report_type}><option value="daily-sales">Daily sales</option><option value="stock-movements">Stock movements</option><option value="procurement">Procurement</option><option value="reconciliation">Reconciliation</option><option value="supplier-performance">Supplier performance</option><option value="shift-attendance">Shift attendance</option><option value="user-activity">User activity</option></select></label>
         <label><span className="mb-2 block text-sm font-semibold">Frequency *</span><select className="form-input" onChange={(event) => setValues({ ...values, frequency: event.target.value })} value={values.frequency}><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
-        <label><span className="mb-2 block text-sm font-semibold">Delivery time (Africa/Accra) *</span><input className="form-input" onChange={(event) => setValues({ ...values, send_time: event.target.value })} required type="time" value={values.send_time} /></label>
+        <label><span className="mb-2 block text-sm font-semibold">Delivery time (company/station timezone) *</span><input className="form-input" onChange={(event) => setValues({ ...values, send_time: event.target.value })} required type="time" value={values.send_time} /></label>
+        {values.frequency === 'weekly' ? <label><span className="mb-2 block text-sm font-semibold">Delivery day *</span><select className="form-input" onChange={(event) => setValues({ ...values, day_of_week: event.target.value })} value={values.day_of_week}><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="7">Sunday</option></select></label> : null}
+        {values.frequency === 'monthly' ? <label><span className="mb-2 block text-sm font-semibold">Day of month *</span><input className="form-input" max="28" min="1" onChange={(event) => setValues({ ...values, day_of_month: event.target.value })} required type="number" value={values.day_of_month} /></label> : null}
         <label className="sm:col-span-2"><span className="mb-2 block text-sm font-semibold">Recipients (comma-separated) *</span><input className="form-input" onChange={(event) => setValues({ ...values, recipients: event.target.value })} placeholder="finance@example.com, owner@example.com" required value={values.recipients} /></label>
         {save.error ? <p className="text-sm text-rose-600 sm:col-span-2">{save.error instanceof Error ? save.error.message : 'Unable to save the schedule.'}</p> : null}
         <div className="sm:col-span-2"><button className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" disabled={save.isPending} type="submit">{save.isPending ? 'Saving…' : 'Save schedule'}</button></div>
       </form>
     </section>
-    <DataTable actions={(row) => <button className="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-semibold" onClick={() => toggle.mutate(row.id)} type="button">{row.is_active ? 'Pause' : 'Activate'}</button>} columns={[{ key: 'name', label: 'Schedule' }, { key: 'report_type', label: 'Report' }, { key: 'frequency', label: 'Frequency' }, { key: 'send_time', label: 'Send time' }, { key: 'recipients', label: 'Recipients' }, { key: 'is_active', label: 'Status', format: 'status' }]} loading={schedules.isLoading} rows={schedules.data?.data ?? []} />
+    <DataTable actions={(row) => <button className="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-semibold" onClick={() => toggle.mutate(row.id)} type="button">{row.is_active ? 'Pause' : 'Activate'}</button>} columns={[{ key: 'name', label: 'Schedule' }, { key: 'report_type', label: 'Report' }, { key: 'frequency', label: 'Frequency' }, { key: 'day_of_week', label: 'Weekday' }, { key: 'day_of_month', label: 'Month day' }, { key: 'send_time', label: 'Send time' }, { key: 'recipients', label: 'Recipients' }, { key: 'is_active', label: 'Status', format: 'status' }]} loading={schedules.isLoading} rows={schedules.data?.data ?? []} />
   </div>
 }
 

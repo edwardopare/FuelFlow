@@ -8,8 +8,10 @@ use App\Models\Organization;
 use App\Models\Role;
 use App\Models\Station;
 use App\Models\User;
+use App\Notifications\UserOnboardedNotification;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -34,6 +36,7 @@ class UserManagementApiTest extends TestCase
 
     public function test_administrator_can_create_station_scoped_user_with_audit_event(): void
     {
+        Notification::fake();
         $administrator = $this->userWithRole('administrator', null);
         $attendantRole = Role::query()->where('slug', 'cashier_attendant')->firstOrFail();
         Sanctum::actingAs($administrator);
@@ -62,6 +65,10 @@ class UserManagementApiTest extends TestCase
             );
 
         $createdId = $response->json('data.id');
+        Notification::assertSentTo(
+            User::query()->findOrFail($createdId),
+            UserOnboardedNotification::class,
+        );
         $this->assertDatabaseHas('audit_events', [
             'action' => 'user.created',
             'subject_id' => $createdId,

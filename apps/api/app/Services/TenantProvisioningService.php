@@ -19,6 +19,7 @@ class TenantProvisioningService
     public function __construct(
         private readonly VendorAuditService $audit,
         private readonly OrganizationLicenseService $licenses,
+        private readonly ApplicationNotificationService $notifications,
     ) {}
 
     /**
@@ -34,7 +35,7 @@ class TenantProvisioningService
         array $licenseData,
         array $accounts,
     ): Organization {
-        return DB::transaction(function () use (
+        $organization = DB::transaction(function () use (
             $vendorUser,
             $companyData,
             $stationData,
@@ -102,6 +103,10 @@ class TenantProvisioningService
 
             return $organization;
         });
+
+        $this->notifications->companyOnboarded($organization);
+
+        return $organization;
     }
 
     /** @param array<string, mixed> $account */

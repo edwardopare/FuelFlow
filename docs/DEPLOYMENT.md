@@ -40,6 +40,33 @@ database identity, and mail value in `.env.production`. The public URLs must use
 HTTPS. Use a dedicated database username and unique passwords. Put the mail
 provider credential into `secrets/mail_password.txt` using a secure editor.
 
+For Gmail SMTP, enable 2-Step Verification and generate a Google App Password.
+Use the Gmail address that generated the App Password for both the username and
+sender address. Do not use the normal Google account password.
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-account@gmail.com
+MAIL_FROM_ADDRESS=your-account@gmail.com
+MAIL_FROM_NAME=FuelFlow FSMS
+```
+
+Put the 16-character App Password, without spaces, in
+`secrets/mail_password.txt`. Port 587 uses `MAIL_SCHEME=smtp`; Symfony
+negotiates STARTTLS automatically. Use `MAIL_SCHEME=smtps` only when switching
+to implicit TLS on port 465. On Render or another managed platform, set the
+secret directly as `MAIL_PASSWORD` instead of `MAIL_PASSWORD_FILE` unless the
+platform mounts a secret file.
+
+The queue worker sends onboarding, PO workflow, license, password-reset, and
+report messages. The scheduler checks report schedules every minute and checks
+licenses daily at 07:00 Africa/Accra. License alerts are deduplicated at 30,
+14, 7, 3, 1, and 0 days before expiry. Both the queue and scheduler services
+must remain continuously running.
+
 Protect the configuration on Linux:
 
 ```bash
@@ -117,12 +144,16 @@ Before opening access to users, verify:
 3. The vendor Super User can log in, must replace the temporary password, and
    can onboard a controlled test company with a license tenure, edit that tenure,
    and deactivate or renew its license.
-4. Password-reset mail reaches a controlled test mailbox.
+4. Password-reset and onboarding mail reach a controlled test mailbox, and no
+   plaintext temporary password appears in an email.
 5. The onboarded Administrator, Station Manager, Pump Attendant, Accountant, Owner, and
    Auditor accounts see only their assigned navigation and data scope.
 6. A test PO follows Station Manager → Administrator → Accountant, with the
-   payment receipt downloadable only by authorized users.
-7. Queue and scheduler logs show no repeated failures.
+   request, approval/rejection, and payment emails reaching the correct roles;
+   the payment receipt remains downloadable only by authorized users.
+7. A license expiring at a configured threshold sends one alert per recipient,
+   and a due report schedule sends its CSV attachment once per recipient.
+8. Queue and scheduler logs show no repeated failures.
 
 ```bash
 docker compose --env-file .env.production -f compose.production.yaml logs --since=15m api queue scheduler gateway

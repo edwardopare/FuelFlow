@@ -86,4 +86,9 @@ class Organization extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    public function reportSchedules(): HasMany
+    {
+        return $this->hasMany(ReportSchedule::class);
+    }
 }

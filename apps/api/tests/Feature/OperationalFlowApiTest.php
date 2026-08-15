@@ -9,9 +9,11 @@ use App\Models\Reconciliation;
 use App\Models\Role;
 use App\Models\Station;
 use App\Models\User;
+use App\Notifications\PurchaseOrderWorkflowNotification;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -22,6 +24,7 @@ class OperationalFlowApiTest extends TestCase
 
     public function test_authorized_users_can_complete_the_fuel_order_to_reconciliation_flow(): void
     {
+        Notification::fake();
         Storage::fake('local');
         $this->seed(RolePermissionSeeder::class);
         $organization = Organization::query()->create([
@@ -131,6 +134,11 @@ class OperationalFlowApiTest extends TestCase
         $this->postJson("/api/v1/purchase-orders/{$order['id']}/submit")
             ->assertOk()
             ->assertJsonPath('data.status', 'pending_approval');
+        Notification::assertSentTo(
+            $administrator,
+            PurchaseOrderWorkflowNotification::class,
+            fn (PurchaseOrderWorkflowNotification $notification) => $notification->event === 'submitted',
+        );
         Sanctum::actingAs($accountant);
         $this->getJson('/api/v1/purchase-orders?queue=payment')
             ->assertOk()
@@ -142,6 +150,11 @@ class OperationalFlowApiTest extends TestCase
         $this->postJson("/api/v1/purchase-orders/{$order['id']}/approve")
             ->assertOk()
             ->assertJsonPath('data.status', 'approved');
+        Notification::assertSentTo(
+            [$stationManager, $accountant],
+            PurchaseOrderWorkflowNotification::class,
+            fn (PurchaseOrderWorkflowNotification $notification) => $notification->event === 'approved',
+        );
         Sanctum::actingAs($stationManager);
         $this->post("/api/v1/purchase-orders/{$order['id']}/pay", [
             'receipt' => UploadedFile::fake()->create(
@@ -173,6 +186,11 @@ class OperationalFlowApiTest extends TestCase
         $this->postJson("/api/v1/purchase-orders/{$rejectedOrder['id']}/reject", [
             'reason' => 'The proposed order exceeds the approved station purchasing plan.',
         ])->assertOk()->assertJsonPath('data.status', 'rejected');
+        Notification::assertSentTo(
+            $stationManager,
+            PurchaseOrderWorkflowNotification::class,
+            fn (PurchaseOrderWorkflowNotification $notification) => $notification->event === 'rejected',
+        );
         Sanctum::actingAs($administrator);
         $this->postJson("/api/v1/purchase-orders/{$order['id']}/send")
             ->assertConflict();
@@ -196,6 +214,11 @@ class OperationalFlowApiTest extends TestCase
             ->assertJsonPath('data.payment_reference', 'GCB-TRX-0001')
             ->assertJsonPath('data.payment_receipt_name', 'payment-receipt.pdf')
             ->json('data');
+        Notification::assertSentTo(
+            [$stationManager, $administrator],
+            PurchaseOrderWorkflowNotification::class,
+            fn (PurchaseOrderWorkflowNotification $notification) => $notification->event === 'paid',
+        );
         Storage::disk('local')->assertExists(
             PurchaseOrder::query()
                 ->findOrFail($order['id'])

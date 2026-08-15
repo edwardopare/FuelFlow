@@ -110,8 +110,18 @@ class ReportScheduleController extends Controller
             ])],
             'frequency' => ['required', Rule::in(['daily', 'weekly', 'monthly'])],
             'send_time' => ['required', 'date_format:H:i'],
-            'day_of_week' => ['nullable', 'integer', 'between:1,7'],
-            'day_of_month' => ['nullable', 'integer', 'between:1,28'],
+            'day_of_week' => [
+                'nullable',
+                'required_if:frequency,weekly',
+                'integer',
+                'between:1,7',
+            ],
+            'day_of_month' => [
+                'nullable',
+                'required_if:frequency,monthly',
+                'integer',
+                'between:1,28',
+            ],
             'recipients' => ['required', 'array', 'min:1', 'max:20'],
             'recipients.*' => ['required', 'email'],
         ];

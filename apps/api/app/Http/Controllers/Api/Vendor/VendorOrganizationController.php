@@ -11,6 +11,7 @@ use App\Http\Resources\VendorOrganizationResource;
 use App\Models\Organization;
 use App\Models\Station;
 use App\Models\User;
+use App\Services\ApplicationNotificationService;
 use App\Services\OrganizationLicenseService;
 use App\Services\TenantProvisioningService;
 use App\Services\VendorAuditService;
@@ -92,6 +93,7 @@ class VendorOrganizationController extends Controller
         Organization $organization,
         TenantProvisioningService $provisioning,
         VendorAuditService $audit,
+        ApplicationNotificationService $notifications,
     ) {
         $station = $request->filled('station_id')
             ? Station::query()
@@ -125,6 +127,7 @@ class VendorOrganizationController extends Controller
 
             return $user;
         });
+        $notifications->userOnboarded($user);
 
         return (new VendorOrganizationResource($this->loadOrganization($organization)))
             ->response()

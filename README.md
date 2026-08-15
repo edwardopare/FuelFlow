@@ -40,8 +40,12 @@ The application now includes a working operational vertical slice:
 - GHS sales and receipts, effective price snapshots, payment method,
   stock issue/reversal, shifts, meter readings, cash counts, and daily
   reconciliation/sign-off.
-- Live role-scoped dashboards, six operational reports with CSV export,
-  persisted report schedules, immutable audit history, and system tolerances.
+- Live role-scoped dashboards, seven operational reports with CSV export,
+  recurring email delivery schedules, immutable audit history, and system
+  tolerances.
+- Queued email notifications for company/user onboarding, the complete PO
+  approval/payment lifecycle, password resets, license-expiry thresholds, and
+  scheduled CSV reports, with idempotent license/report dispatch tracking.
 - PostgreSQL, Redis, API, queue worker, scheduler, and React development
   services in Docker Compose.
 - Production PHP-FPM and compiled React/Nginx images, private data networking,
@@ -51,7 +55,7 @@ The application now includes a working operational vertical slice:
 
 No navigation route is a placeholder. The full hardening sequence for advanced
 integrations (ATG hardware, offline sales synchronization, secure document
-storage, notifications, and queued PDF/XLSX delivery) remains tracked in:
+storage, and queued PDF/XLSX delivery) remains tracked in:
 
 - `docs/FSMS_IMPLEMENTATION_PLAN.md`
 - `docs/FSMS_REQUIREMENTS_TRACEABILITY.md`

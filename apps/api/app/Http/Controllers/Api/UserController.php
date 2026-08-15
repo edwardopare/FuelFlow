@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\AuditEvent;
 use App\Models\User;
+use App\Services\ApplicationNotificationService;
 use App\Services\AuditService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -68,6 +69,7 @@ class UserController extends Controller
     public function store(
         StoreUserRequest $request,
         AuditService $audit,
+        ApplicationNotificationService $notifications,
     ): JsonResponse {
         $user = DB::transaction(function () use ($request, $audit): User {
             $user = User::query()->create([
@@ -106,6 +108,7 @@ class UserController extends Controller
 
             return $user;
         });
+        $notifications->userOnboarded($user);
 
         return (new UserResource(
             $user->load(['organization', 'stations', 'roleAssignments.role']),

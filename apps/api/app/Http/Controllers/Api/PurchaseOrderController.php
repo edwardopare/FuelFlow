@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\Tank;
+use App\Services\ApplicationNotificationService;
 use App\Services\AuditService;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -157,6 +158,7 @@ class PurchaseOrderController extends Controller
         Request $request,
         PurchaseOrder $purchaseOrder,
         AuditService $audit,
+        ApplicationNotificationService $notifications,
     ): JsonResponse {
         $this->assertAccess($request, $purchaseOrder);
         $this->requirePermission(
@@ -175,6 +177,7 @@ class PurchaseOrderController extends Controller
                 stationId: $locked->station_id,
             ),
         );
+        $notifications->purchaseOrderSubmitted($purchaseOrder);
 
         return $this->response($purchaseOrder);
     }
@@ -183,6 +186,7 @@ class PurchaseOrderController extends Controller
         Request $request,
         PurchaseOrder $purchaseOrder,
         AuditService $audit,
+        ApplicationNotificationService $notifications,
     ): JsonResponse {
         $this->assertAccess($request, $purchaseOrder);
         $this->requireAdministrator($request);
@@ -211,6 +215,7 @@ class PurchaseOrderController extends Controller
                 stationId: $locked->station_id,
             ),
         );
+        $notifications->purchaseOrderApproved($purchaseOrder);
 
         return $this->response($purchaseOrder);
     }
@@ -219,6 +224,7 @@ class PurchaseOrderController extends Controller
         Request $request,
         PurchaseOrder $purchaseOrder,
         AuditService $audit,
+        ApplicationNotificationService $notifications,
     ): JsonResponse {
         $this->assertAccess($request, $purchaseOrder);
         $this->requireAdministrator($request);
@@ -245,6 +251,10 @@ class PurchaseOrderController extends Controller
                 reason: $validated['reason'],
             ),
         );
+        $notifications->purchaseOrderRejected(
+            $purchaseOrder,
+            $validated['reason'],
+        );
 
         return $this->response($purchaseOrder);
     }
@@ -253,6 +263,7 @@ class PurchaseOrderController extends Controller
         Request $request,
         PurchaseOrder $purchaseOrder,
         AuditService $audit,
+        ApplicationNotificationService $notifications,
     ): JsonResponse {
         $this->assertAccess($request, $purchaseOrder);
         $this->requirePermission(
@@ -323,6 +334,7 @@ class PurchaseOrderController extends Controller
 
             throw $exception;
         }
+        $notifications->purchaseOrderPaid($purchaseOrder);
 
         return $this->response($purchaseOrder);
     }
