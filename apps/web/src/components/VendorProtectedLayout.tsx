@@ -1,6 +1,11 @@
+import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useCurrentVendorUser } from '../hooks/useVendorAuth'
-import { ApiError } from '../lib/api'
+import {
+  ApiError,
+  AUTHENTICATION_REQUIRED_EVENT,
+  type AuthenticationScope,
+} from '../lib/api'
 import type { VendorUser } from '../types/api'
 import { LoadingScreen } from './LoadingScreen'
 import { VendorShell } from './VendorShell'
@@ -10,6 +15,28 @@ export type VendorOutletContext = { vendorUser: VendorUser }
 export function VendorProtectedLayout() {
   const currentUser = useCurrentVendorUser()
   const location = useLocation()
+
+  useEffect(() => {
+    const refreshAuthentication = (event: Event) => {
+      const scope = (event as CustomEvent<{ scope: AuthenticationScope }>).detail
+        ?.scope
+
+      if (scope === 'vendor') {
+        void currentUser.refetch()
+      }
+    }
+
+    window.addEventListener(
+      AUTHENTICATION_REQUIRED_EVENT,
+      refreshAuthentication,
+    )
+
+    return () =>
+      window.removeEventListener(
+        AUTHENTICATION_REQUIRED_EVENT,
+        refreshAuthentication,
+      )
+  }, [currentUser.refetch])
 
   if (currentUser.isLoading) {
     return <LoadingScreen label="Checking vendor access" />

@@ -117,6 +117,52 @@ class AuthApiTest extends TestCase
         ]);
     }
 
+    public function test_pending_first_login_user_can_set_permanent_password_without_reentering_temporary_password(): void
+    {
+        [$user] = $this->makeUser('station_manager', UserStatus::PendingFirstLogin);
+        $user->forceFill([
+            'password' => 'TemporaryPassword1!',
+            'must_change_password' => true,
+        ])->save();
+
+        $this
+            ->actingAs($user)
+            ->postJson('/api/v1/auth/change-password', [
+                'password' => 'PermanentPassword2!',
+                'password_confirmation' => 'PermanentPassword2!',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.must_change_password', false)
+            ->assertJsonPath('data.status', UserStatus::Active->value);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('PermanentPassword2!', $user->password));
+        $this->assertDatabaseHas('audit_events', [
+            'action' => 'auth.password_changed',
+            'actor_id' => $user->id,
+        ]);
+    }
+
+    public function test_active_user_must_supply_their_current_password_to_change_it(): void
+    {
+        [$user] = $this->makeUser('owner', UserStatus::Active);
+        $user->forceFill([
+            'password' => 'CurrentPassword1!',
+            'must_change_password' => false,
+        ])->save();
+
+        $this
+            ->actingAs($user)
+            ->postJson('/api/v1/auth/change-password', [
+                'password' => 'ReplacementPassword2!',
+                'password_confirmation' => 'ReplacementPassword2!',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('current_password');
+
+        $this->assertTrue(Hash::check('CurrentPassword1!', $user->fresh()->password));
+    }
+
     public function test_user_can_request_and_complete_password_reset(): void
     {
         Notification::fake();

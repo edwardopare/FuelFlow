@@ -3,6 +3,11 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json',
 }
 
+export const AUTHENTICATION_REQUIRED_EVENT =
+  'fuelflow:authentication-required'
+
+export type AuthenticationScope = 'tenant' | 'vendor'
+
 export class ApiError extends Error {
   readonly status: number
   readonly errors?: Record<string, string[]>
@@ -27,6 +32,26 @@ function getCookie(name: string): string | null {
     ?.slice(prefix.length)
 
   return encodedValue ? decodeURIComponent(encodedValue) : null
+}
+
+function notifyAuthenticationRequired(path: string): void {
+  if (
+    typeof window === 'undefined' ||
+    path === '/api/v1/me' ||
+    path === '/api/v1/vendor/me'
+  ) {
+    return
+  }
+
+  const scope: AuthenticationScope = path.startsWith('/api/v1/vendor/')
+    ? 'vendor'
+    : 'tenant'
+
+  window.dispatchEvent(
+    new CustomEvent(AUTHENTICATION_REQUIRED_EVENT, {
+      detail: { scope },
+    }),
+  )
 }
 
 export async function getCsrfCookie(): Promise<void> {
@@ -78,6 +103,10 @@ export async function apiFetch<T>(
   } | null
 
   if (!response.ok) {
+    if (response.status === 401) {
+      notifyAuthenticationRequired(path)
+    }
+
     throw new ApiError(
       payload?.message ?? 'The request could not be completed.',
       response.status,

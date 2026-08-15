@@ -1,6 +1,11 @@
+import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useCurrentUser } from '../hooks/useAuth'
-import { ApiError } from '../lib/api'
+import {
+  ApiError,
+  AUTHENTICATION_REQUIRED_EVENT,
+  type AuthenticationScope,
+} from '../lib/api'
 import type { User } from '../types/api'
 import { AppShell } from './AppShell'
 import { LoadingScreen } from './LoadingScreen'
@@ -12,6 +17,28 @@ export type AuthenticatedOutletContext = {
 export function ProtectedLayout() {
   const currentUser = useCurrentUser()
   const location = useLocation()
+
+  useEffect(() => {
+    const refreshAuthentication = (event: Event) => {
+      const scope = (event as CustomEvent<{ scope: AuthenticationScope }>).detail
+        ?.scope
+
+      if (scope === 'tenant') {
+        void currentUser.refetch()
+      }
+    }
+
+    window.addEventListener(
+      AUTHENTICATION_REQUIRED_EVENT,
+      refreshAuthentication,
+    )
+
+    return () =>
+      window.removeEventListener(
+        AUTHENTICATION_REQUIRED_EVENT,
+        refreshAuthentication,
+      )
+  }, [currentUser.refetch])
 
   if (currentUser.isLoading) {
     return <LoadingScreen label="Checking access" />

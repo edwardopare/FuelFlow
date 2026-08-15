@@ -17,8 +17,12 @@ class ChangePasswordRequest extends FormRequest
      */
     public function rules(): array
     {
+        $isRequiredFirstLogin = $this->user()?->must_change_password === true;
+
         return [
-            'current_password' => ['required', 'current_password'],
+            'current_password' => $isRequiredFirstLogin
+                ? ['nullable', 'string']
+                : ['required', 'current_password'],
             'password' => [
                 'required',
                 'confirmed',

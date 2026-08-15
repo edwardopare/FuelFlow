@@ -89,7 +89,7 @@ export function useChangePassword() {
 
   return useMutation({
     mutationFn: async (data: {
-      current_password: string
+      current_password?: string
       password: string
       password_confirmation: string
       terminal_pin?: string

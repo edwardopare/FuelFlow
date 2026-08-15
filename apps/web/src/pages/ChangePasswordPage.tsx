@@ -10,7 +10,6 @@ import { ApiError } from '../lib/api'
 
 const changePasswordSchema = z
   .object({
-    current_password: z.string().min(1, 'Current password is required.'),
     password: z
       .string()
       .min(12, 'Use at least 12 characters.')
@@ -44,7 +43,6 @@ export default function ChangePasswordPage() {
   } = useForm<ChangePasswordForm>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: {
-      current_password: '',
       password: '',
       password_confirmation: '',
       terminal_pin: undefined,
@@ -106,20 +104,14 @@ export default function ChangePasswordPage() {
           Secure your account
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          Set a permanent password before accessing station data.
+          You confirmed your temporary password when signing in. Set a
+          permanent password before accessing station data.
           {isAttendant
             ? ' Your Cashier / Pump Attendant role also requires a terminal PIN.'
             : ''}
         </p>
 
         <form className="mt-8 space-y-5" onSubmit={onSubmit}>
-          <PasswordField
-            autoComplete="current-password"
-            error={errors.current_password?.message}
-            id="current_password"
-            label="Current password"
-            registration={register('current_password')}
-          />
           <PasswordField
             autoComplete="new-password"
             error={errors.password?.message}
