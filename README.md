@@ -95,6 +95,36 @@ Copy `.env.example` to `.env` before starting if you want to replace the local
 database or demo credentials. Demo data is only seeded when the Laravel
 environment is `local` and `SEED_DEMO_DATA=true`.
 
+### Local email testing
+
+Local email defaults to `MAIL_MAILER=log`, which records rendered messages in
+`apps/api/storage/logs/laravel.log` without delivering them. To test delivery
+through Gmail, set the following values in the ignored root `.env` file. Use a
+Google App Password rather than the Gmail account password.
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-account@gmail.com
+MAIL_PASSWORD=your-16-character-app-password
+MAIL_FROM_ADDRESS=your-account@gmail.com
+MAIL_FROM_NAME="FuelFlow FSMS"
+```
+
+Recreate the Laravel processes after changing mail configuration:
+
+```bash
+docker compose up -d --force-recreate api queue scheduler
+docker compose logs -f queue
+```
+
+The API, queue worker, and scheduler receive the same mail configuration. User
+and company onboarding, purchase-order workflow, and license alerts use the
+queue worker; scheduled report delivery uses both the scheduler and queue.
+Never commit `.env` or a Gmail App Password.
+
 ## Production deployment
 
 The production stack is intentionally separate from local development. It does
