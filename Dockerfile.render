@@ -1,0 +1,73 @@
+FROM node:24-alpine AS web-build
+
+RUN npm install --global pnpm@11.16.0
+
+WORKDIR /build/web
+
+COPY apps/web/package.json apps/web/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY apps/web/ ./
+RUN pnpm run build
+
+
+FROM php:8.4-fpm-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        gettext-base \
+        gosu \
+        libicu-dev \
+        libpq-dev \
+        libzip-dev \
+        nginx \
+        unzip \
+    && docker-php-ext-install -j"$(nproc)" intl opcache pcntl pdo_pgsql zip \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+WORKDIR /var/www/html
+
+COPY apps/api/composer.json apps/api/composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --no-progress \
+    --no-scripts \
+    --optimize-autoloader
+
+COPY --chown=www-data:www-data apps/api/ ./
+COPY --from=web-build /build/web/dist /usr/share/nginx/html
+COPY apps/api/docker/php/opcache.ini /usr/local/etc/php/conf.d/99-fuelflow.ini
+COPY apps/api/docker/php/zz-fuelflow.conf /usr/local/etc/php-fpm.d/zz-fuelflow.conf
+COPY deployment/render/nginx.conf /etc/nginx/nginx.conf
+COPY deployment/render/default.conf.template /etc/nginx/templates/default.conf.template
+COPY deployment/render/entrypoint.sh /usr/local/bin/fuelflow-render-entrypoint
+
+RUN rm -f /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default \
+    && rm -f bootstrap/cache/*.php \
+    && mkdir -p \
+        /etc/nginx/templates \
+        storage/app/private/purchase-order-payment-receipts \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+    && composer dump-autoload --no-dev --classmap-authoritative --no-scripts \
+    && php artisan package:discover --ansi \
+    && chown -R www-data:www-data \
+        /usr/share/nginx/html \
+        storage \
+        bootstrap/cache \
+    && chmod 0755 /usr/local/bin/fuelflow-render-entrypoint
+
+EXPOSE 10000
+
+ENTRYPOINT ["fuelflow-render-entrypoint"]
+CMD ["web"]

@@ -1,0 +1,257 @@
+previews:
+  generation: "off"
+
+envVarGroups:
+  - name: fuelflow-runtime
+    envVars:
+      - key: APP_NAME
+        value: FuelFlow FSMS
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_TIMEZONE
+        value: Africa/Accra
+      - key: API_RATE_LIMIT_PER_MINUTE
+        value: "120"
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_SSLMODE
+        value: require
+      - key: SESSION_DRIVER
+        value: redis
+      - key: SESSION_CONNECTION
+        value: default
+      - key: SESSION_LIFETIME
+        value: "30"
+      - key: VENDOR_SESSION_LIFETIME
+        value: "30"
+      - key: SESSION_ENCRYPT
+        value: "true"
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: SESSION_HTTP_ONLY
+        value: "true"
+      - key: SESSION_SAME_SITE
+        value: lax
+      - key: QUEUE_CONNECTION
+        value: redis
+      - key: CACHE_STORE
+        value: redis
+      - key: REDIS_CLIENT
+        value: phpredis
+      - key: TRUSTED_PROXIES
+        value: "*"
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: warning
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_SCHEME
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_FROM_NAME
+        value: FuelFlow FSMS
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: SEED_DEMO_DATA
+        value: "false"
+
+services:
+  - type: web
+    name: fuelflow
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    dockerCommand: web
+    preDeployCommand: php artisan migrate --force
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: checksPass
+    numInstances: 1
+    disk:
+      name: fuelflow-receipts
+      mountPath: /var/www/html/storage/app/private/purchase-order-payment-receipts
+      sizeGB: 1
+    envVars:
+      - fromGroup: fuelflow-runtime
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: SANCTUM_STATEFUL_DOMAINS
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: SESSION_DOMAIN
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: DB_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+
+  - type: worker
+    name: fuelflow-queue
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./apps/api/Dockerfile.production
+    dockerContext: ./apps/api
+    dockerCommand: php artisan queue:work --sleep=2 --tries=3 --backoff=5 --timeout=120 --max-time=3600
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 120
+    envVars:
+      - fromGroup: fuelflow-runtime
+      - key: APP_KEY
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: APP_KEY
+      - key: APP_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: SANCTUM_STATEFUL_DOMAINS
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: SESSION_DOMAIN
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: DB_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: DB_URL
+      - key: REDIS_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: REDIS_URL
+      - key: MAIL_USERNAME
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: MAIL_USERNAME
+      - key: MAIL_PASSWORD
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: MAIL_PASSWORD
+      - key: MAIL_FROM_ADDRESS
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: MAIL_FROM_ADDRESS
+
+  - type: cron
+    name: fuelflow-scheduler
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    schedule: "* * * * *"
+    dockerfilePath: ./apps/api/Dockerfile.production
+    dockerContext: ./apps/api
+    dockerCommand: php artisan schedule:run --no-interaction
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: fuelflow-runtime
+      - key: APP_KEY
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: APP_KEY
+      - key: APP_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: SANCTUM_STATEFUL_DOMAINS
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: SESSION_DOMAIN
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: DB_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: DB_URL
+      - key: REDIS_URL
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: REDIS_URL
+      - key: MAIL_USERNAME
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: MAIL_USERNAME
+      - key: MAIL_PASSWORD
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: MAIL_PASSWORD
+      - key: MAIL_FROM_ADDRESS
+        fromService:
+          type: web
+          name: fuelflow
+          envVarKey: MAIL_FROM_ADDRESS
