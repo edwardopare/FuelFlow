@@ -102,6 +102,12 @@ not expose PostgreSQL, Redis, or PHP-FPM; it does not run Vite or Laravel's
 development server; and it never seeds demo users. Start with the complete
 [production deployment runbook](docs/DEPLOYMENT.md).
 
+For Render with Neon PostgreSQL and Render Key Value, use the root
+[`render.yaml`](render.yaml) Blueprint and the dedicated
+[`docs/DEPLOYMENT_RENDER.md`](docs/DEPLOYMENT_RENDER.md) runbook. The Blueprint
+creates the public web service, queue worker, scheduler, and persistent receipt
+storage without relying on Docker Compose secret files.
+
 ```bash
 cp .env.production.example .env.production
 docker compose --env-file .env.production -f compose.production.yaml config --quiet
