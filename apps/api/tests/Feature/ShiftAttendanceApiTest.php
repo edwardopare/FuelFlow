@@ -224,6 +224,7 @@ class ShiftAttendanceApiTest extends TestCase
 
         $this->travelTo(CarbonImmutable::parse('2026-08-09 08:15:00', 'Africa/Accra'));
         Sanctum::actingAs($attendant);
+        $this->app['session']->forget('auth_last_activity');
         $this->postJson("/api/v1/shifts/{$recurringShifts[1]->id}/open", [
             'readings' => [[
                 'nozzle_id' => $nozzle->id,
