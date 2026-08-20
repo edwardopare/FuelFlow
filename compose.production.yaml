@@ -206,6 +206,8 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile.production
+      args:
+        NGINX_DEFAULT_CONF: docker/nginx/default.gateway.conf
     depends_on:
       api:
         condition: service_healthy

@@ -138,6 +138,11 @@ For Render with Neon PostgreSQL and Render Key Value, use the root
 creates the public web service, queue worker, scheduler, and persistent receipt
 storage without relying on Docker Compose secret files.
 
+For separate AWS ECS services, use the
+[`docs/DEPLOYMENT_AWS_ECS.md`](docs/DEPLOYMENT_AWS_ECS.md) runbook. The default
+React production image is standalone and does not depend on Docker Compose DNS;
+the Compose gateway build selects its internal FastCGI configuration explicitly.
+
 ```bash
 cp .env.production.example .env.production
 docker compose --env-file .env.production -f compose.production.yaml config --quiet
