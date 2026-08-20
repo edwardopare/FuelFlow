@@ -14,6 +14,7 @@ export type VendorOutletContext = { vendorUser: VendorUser }
 
 export function VendorProtectedLayout() {
   const currentUser = useCurrentVendorUser()
+  const { refetch: refetchCurrentUser } = currentUser
   const location = useLocation()
 
   useEffect(() => {
@@ -22,7 +23,7 @@ export function VendorProtectedLayout() {
         ?.scope
 
       if (scope === 'vendor') {
-        void currentUser.refetch()
+        void refetchCurrentUser()
       }
     }
 
@@ -36,7 +37,7 @@ export function VendorProtectedLayout() {
         AUTHENTICATION_REQUIRED_EVENT,
         refreshAuthentication,
       )
-  }, [currentUser.refetch])
+  }, [refetchCurrentUser])
 
   if (currentUser.isLoading) {
     return <LoadingScreen label="Checking vendor access" />
@@ -61,7 +62,7 @@ export function VendorProtectedLayout() {
           </p>
           <button
             className="mt-5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-            onClick={() => currentUser.refetch()}
+            onClick={() => refetchCurrentUser()}
             type="button"
           >
             Try again

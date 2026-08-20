@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
         $middleware->appendToGroup('api', AssignRequestId::class);
+        $middleware->redirectGuestsTo(
+            fn (Request $request): ?string => $request->is('api/*') ? null : '/login',
+        );
 
         $trustedProxies = env('TRUSTED_PROXIES');
         if (is_string($trustedProxies) && $trustedProxies !== '') {

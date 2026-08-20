@@ -165,6 +165,20 @@ pnpm run test:run
 pnpm run build
 ```
 
+Browser regression (isolated database, queue, and array mailer):
+
+```bash
+docker compose -p fuelflow-e2e -f compose.yaml -f compose.e2e.yaml up -d --build --wait postgres redis api web
+cd apps/web
+pnpm exec playwright install --no-shell chromium
+pnpm run test:e2e
+cd ../..
+docker compose -p fuelflow-e2e -f compose.yaml -f compose.e2e.yaml down --volumes --remove-orphans
+```
+
+CI runs the same ten desktop/mobile workflows and blocks production-image
+builds when a browser regression fails.
+
 ## Repository structure
 
 ```text

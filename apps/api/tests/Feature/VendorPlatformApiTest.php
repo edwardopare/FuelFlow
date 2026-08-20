@@ -12,6 +12,7 @@ use App\Models\VendorUser;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -22,6 +23,7 @@ class VendorPlatformApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Notification::fake();
         $this->seed(RolePermissionSeeder::class);
     }
 

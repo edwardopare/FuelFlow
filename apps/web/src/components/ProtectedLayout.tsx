@@ -16,6 +16,7 @@ export type AuthenticatedOutletContext = {
 
 export function ProtectedLayout() {
   const currentUser = useCurrentUser()
+  const { refetch: refetchCurrentUser } = currentUser
   const location = useLocation()
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export function ProtectedLayout() {
         ?.scope
 
       if (scope === 'tenant') {
-        void currentUser.refetch()
+        void refetchCurrentUser()
       }
     }
 
@@ -38,7 +39,7 @@ export function ProtectedLayout() {
         AUTHENTICATION_REQUIRED_EVENT,
         refreshAuthentication,
       )
-  }, [currentUser.refetch])
+  }, [refetchCurrentUser])
 
   if (currentUser.isLoading) {
     return <LoadingScreen label="Checking access" />
@@ -63,7 +64,7 @@ export function ProtectedLayout() {
           </p>
           <button
             className="mt-5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            onClick={() => currentUser.refetch()}
+            onClick={() => refetchCurrentUser()}
             type="button"
           >
             Try again
